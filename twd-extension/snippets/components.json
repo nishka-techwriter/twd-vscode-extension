@@ -1,0 +1,40 @@
+{
+  "Component: Image Carousel (Before/After)": {
+    "prefix": "TWD-carousel-before-after",
+    "body": [
+      "<Carousel>",
+      "  <Image",
+      "    src=\"../img/${1:folder}/${2:image-new}.png\"",
+      "    alt=\"${3:Новое изображение}\"",
+      "    caption=\"${4:После изменений}\"",
+      "  />",
+      "  <Image",
+      "    src=\"../img/${1:folder}/${5:image-old}.png\"",
+      "    alt=\"${6:Старое изображение}\"",
+      "    caption=\"${7:До изменений}\"",
+      "  />",
+      "</Carousel>"
+    ],
+    "description": "Карусель для сравнения \"было/стало\""
+  },
+
+  "Component: Interactive Card Demo": {
+    "prefix": "TWD-card-interactive",
+    "body": [
+      "<Card>",
+      "  <CardImage",
+      "    cardImageUrl='${1:https://img.freepik.com/vecteurs-libre/dino-triceratops-mignon-illustration-icone-vecteur-dessin-anime-camera-technologie-animale-isolee-plat_138676-6762.jpg?size=626&ext=jpg&ga=GA1.1.1416347011.1716591654&semt=sph}'",
+      "  />",
+      "  <CardFooter style={{ backgroundColor: '${2:#e37c77}', color:'${3:black}' }} className='text--center'>",
+      "    <div className='button-group button-group--block'>",
+      "      <button className='button button--${4:success}'>${5:Like}</button>",
+      "      <button className='button button--${6:warning}'>${7:Comment}</button>",
+      "      <button className='button button--${8:danger}'>${9:Share}</button>",
+      "    </div>",
+      "  </CardFooter>",
+      "</Card>"
+    ],
+    "description": "Интерактивная карточка с изображением и кнопками действий"
+  }
+
+}

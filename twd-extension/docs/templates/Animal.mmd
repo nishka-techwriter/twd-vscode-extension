@@ -1,0 +1,52 @@
+classDiagram
+    class Animal {
+        <<abstract>>
+        -String name
+        -int age
+        -float weight
+        +makeSound()* String
+        +eat(food: String) void
+        +sleep(hours: int) void
+        +getName() String
+        +getAge() int
+        +getWeight() float
+    }
+
+    class Dog {
+        -String breed
+        -String owner
+        +bark() String
+        +fetch(item: String) boolean
+        +wagTail() void
+        +getBreed() String
+        +getOwner() String
+    }
+
+    class Cat {
+        -int lives
+        -String color
+        +meow() String
+        +purr() void
+        +scratch(furniture: String) void
+        +getLives() int
+        +getColor() String
+    }
+
+    class Puppy {
+        -boolean isTrained
+        +play(toy: String) void
+        +learnTrick(trick: String) boolean
+        +getIsTrained() boolean
+    }
+
+    class Kitten {
+        -boolean isFluffy
+        +chaseLaser() void
+        +climbTree() boolean
+        +getIsFluffy() boolean
+    }
+
+    Dog --|> Animal
+    Cat --|> Animal
+    Puppy --|> Dog
+    Kitten --|> Cat
