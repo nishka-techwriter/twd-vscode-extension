@@ -71,50 +71,94 @@ export class SimpleDecorator {
 
     /**
      * Находит диапазоны (vscode.Range) блоков между startMarker и endMarker.
-     * Корректно поддерживает вложенность: использует стек стартовых строк.
+     * 
+     * Особенности работы:
+     * - Для MDX блоков (startMarker начинается с ':::'):
+     *   - Открывающий маркер: любая строка, начинающаяся с ':::' (например, ':::warning', ':::note')
+     *   - Закрывающий маркер: точное совпадение с endMarker (':::')
+     *   - Фильтрация по типу: блок включается только если его маркер (:::warning) совпадает с startMarker
+     *   - Корректно обрабатывает вложенность через стек
+     * 
+     * - Для HTML блоков (startMarker не начинается с ':::'):
+     *   - Открывающий маркер: точное совпадение с startMarker ('<folding-start>')
+     *   - Закрывающий маркер: точное совпадение с endMarker ('<folding-end>')
+     *   - Простой стек без фильтрации по типу
      *
      * @param document - Текущий документ для анализа
-     * @param startMarker - Маркер начала блока (например ':::warning' или '<folding-start>').
-     *                      Сравнение выполняется как `trim().startsWith(startMarker)` — позволяет
-     *                      иметь заголовки типа `:::warning Заголовок`
-     * @param endMarker - Маркер конца блока (например ':::' или '<folding-end>').
-     *                    Сравнение выполняется как `trim() === endMarker`
+     * @param startMarker - Маркер начала блока (например ':::warning' или '<folding-start>')
+     * @param endMarker - Маркер конца блока (например ':::' или '<folding-end>')
      * @returns Массив найденных диапазонов; каждый диапазон покрывает полные строки
-     *          от строки со startMarker до строки с endMarker включительно.
+     *          от строки со startMarker до строки с endMarker включительно
      */
     private findBlockRanges(document: vscode.TextDocument, startMarker: string, endMarker: string): vscode.Range[] {
         const ranges: vscode.Range[] = [];
-        const stack: { line: number; marker: string }[] = [];
+        const isMdx = startMarker.startsWith(":::");
 
-        for (let line = 0; line < document.lineCount; line++) {
-            const textLine = document.lineAt(line);
-            const text = textLine.text;
-            const trimmed = text.trim();
+        if (isMdx) {
+            const stack: { line: number; marker: string }[] = [];
 
-            if (trimmed === endMarker) {
-                const last = stack.pop();
-                if (last) {
-                    if (startMarker === ":::" || last.marker === startMarker) {
+            for (let line = 0; line < document.lineCount; line++) {
+                const textLine = document.lineAt(line);
+                const text = textLine.text;
+                const trimmed = text.trim();
+
+                if (trimmed === endMarker) {
+                    const last = stack.pop();
+                    if (last) {
+                        if (startMarker === ":::" || last.marker === startMarker) {
+                            const range = new vscode.Range(
+                                new vscode.Position(last.line, 0),
+                                new vscode.Position(line, text.length)
+                            );
+                            ranges.push(range);
+                        }
+                    }
+                    continue;
+                }
+
+                if (trimmed.startsWith(":::")) {
+                    const marker = trimmed.split(/\s+/)[0];
+                    stack.push({ line, marker });
+                }
+            }
+
+            for (const item of stack) {
+                if (startMarker === ":::" || item.marker === startMarker) {
+                    const range = new vscode.Range(
+                        new vscode.Position(item.line, 0),
+                        new vscode.Position(document.lineCount, 0)
+                    );
+                    ranges.push(range);
+                }
+            }
+        } else {
+            const stack: number[] = [];
+
+            for (let line = 0; line < document.lineCount; line++) {
+                const textLine = document.lineAt(line);
+                const text = textLine.text;
+                const trimmed = text.trim();
+
+                if (trimmed === endMarker) {
+                    if (stack.length) {
+                        const startLine = stack.pop()!;
                         const range = new vscode.Range(
-                            new vscode.Position(last.line, 0),
+                            new vscode.Position(startLine, 0),
                             new vscode.Position(line, text.length)
                         );
                         ranges.push(range);
                     }
+                    continue;
                 }
-                continue;
+
+                if (trimmed === startMarker) {
+                    stack.push(line);
+                }
             }
 
-            if (trimmed.startsWith(":::")) {
-                const marker = trimmed.split(/\s+/)[0];
-                stack.push({ line, marker });
-            }
-        }
-
-        for (const item of stack) {
-            if (startMarker === ":::" || item.marker === startMarker) {
+            for (const startLine of stack) {
                 const range = new vscode.Range(
-                    new vscode.Position(item.line, 0),
+                    new vscode.Position(startLine, 0),
                     new vscode.Position(document.lineCount, 0)
                 );
                 ranges.push(range);

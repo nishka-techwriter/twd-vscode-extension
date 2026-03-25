@@ -99,37 +99,73 @@ export class SimpleDecorator {
 ```typescript
 private findBlockRanges(document: vscode.TextDocument, startMarker: string, endMarker: string): vscode.Range[] {
         const ranges: vscode.Range[] = [];
-        const stack: { line: number; marker: string }[] = [];
+        const isMdx = startMarker.startsWith(":::");
 
-        for (let line = 0; line < document.lineCount; line++) {
-            const textLine = document.lineAt(line);
-            const text = textLine.text;
-            const trimmed = text.trim();
+        if (isMdx) {
+            const stack: { line: number; marker: string }[] = [];
 
-            if (trimmed === endMarker) {
-                const last = stack.pop();
-                if (last) {
-                    if (startMarker === ":::" || last.marker === startMarker) {
+            for (let line = 0; line < document.lineCount; line++) {
+                const textLine = document.lineAt(line);
+                const text = textLine.text;
+                const trimmed = text.trim();
+
+                if (trimmed === endMarker) {
+                    const last = stack.pop();
+                    if (last) {
+                        if (startMarker === ":::" || last.marker === startMarker) {
+                            const range = new vscode.Range(
+                                new vscode.Position(last.line, 0),
+                                new vscode.Position(line, text.length)
+                            );
+                            ranges.push(range);
+                        }
+                    }
+                    continue;
+                }
+
+                if (trimmed.startsWith(":::")) {
+                    const marker = trimmed.split(/\s+/)[0];
+                    stack.push({ line, marker });
+                }
+            }
+
+            for (const item of stack) {
+                if (startMarker === ":::" || item.marker === startMarker) {
+                    const range = new vscode.Range(
+                        new vscode.Position(item.line, 0),
+                        new vscode.Position(document.lineCount, 0)
+                    );
+                    ranges.push(range);
+                }
+            }
+        } else {
+            const stack: number[] = [];
+
+            for (let line = 0; line < document.lineCount; line++) {
+                const textLine = document.lineAt(line);
+                const text = textLine.text;
+                const trimmed = text.trim();
+
+                if (trimmed === endMarker) {
+                    if (stack.length) {
+                        const startLine = stack.pop()!;
                         const range = new vscode.Range(
-                            new vscode.Position(last.line, 0),
+                            new vscode.Position(startLine, 0),
                             new vscode.Position(line, text.length)
                         );
                         ranges.push(range);
                     }
+                    continue;
                 }
-                continue;
+
+                if (trimmed === startMarker) {
+                    stack.push(line);
+                }
             }
 
-            if (trimmed.startsWith(":::")) {
-                const marker = trimmed.split(/\s+/)[0];
-                stack.push({ line, marker });
-            }
-        }
-
-        for (const item of stack) {
-            if (startMarker === ":::" || item.marker === startMarker) {
+            for (const startLine of stack) {
                 const range = new vscode.Range(
-                    new vscode.Position(item.line, 0),
+                    new vscode.Position(startLine, 0),
                     new vscode.Position(document.lineCount, 0)
                 );
                 ranges.push(range);
@@ -142,94 +178,94 @@ private findBlockRanges(document: vscode.TextDocument, startMarker: string, endM
 
 #### Подробное объяснение метода findBlockRanges
 
-`private findBlockRanges(document: vscode.TextDocument, startMarker: string, endMarker: string): vscode.Range[]`  
-- Приватный метод для поиска диапазонов блоков в документе с поддержкой вложенности и фильтрацией по типу маркера.  
-- **Параметры:**  
-  - `document` – текстовый документ VS Code.  
-  - `startMarker` – маркер начала блока. Может быть конкретным (`':::warning'`) или общим (`':::'`).  
-  - `endMarker` – маркер конца блока (обычно `':::'`).  
-- **Возвращает:** массив `vscode.Range` – каждый диапазон включает строку с открывающим маркером и строку с закрывающим маркером полностью.  
+`private findBlockRanges(document: vscode.TextDocument, startMarker: string, endMarker: string): vscode.Range[]`
+- Приватный метод для поиска диапазонов MDX-блоков в документе с поддержкой вложенности и фильтрацией по типу маркера.
 
-`const ranges: vscode.Range[] = [];`  
-- Создаёт пустой массив для накопления результатов.  
-- `vscode.Range` – объект, хранящий начальную и конечную позиции в документе.  
+**Параметры:**
+- `document` – текстовый документ VS Code
+- `startMarker` – маркер начала блока. Может быть конкретным (`':::warning'`) или общим (`':::'`)
+- `endMarker` – маркер конца блока (всегда `':::'` для MDX)
 
-`const stack: { line: number; marker: string }[] = [];`  
-- Инициализирует стек, в котором будут храниться объекты с номером строки открывающего маркера и его полным первым словом (например, `{ line: 5, marker: ":::note" }`).  
-- Это позволяет впоследствии проверить, соответствует ли найденный блок искомому типу.  
+**Возвращает:** массив `vscode.Range` – каждый диапазон включает строку с открывающим маркером и строку с закрывающим маркером полностью
 
-`for (let line = 0; line < document.lineCount; line++) {`  
-- Цикл по всем строкам документа.  
+`const ranges: vscode.Range[] = [];`
+- Создаёт пустой массив для накопления результатов
 
-`const textLine = document.lineAt(line);`  
-- Получает объект `vscode.TextLine` для текущей строки.  
+`const stack: { line: number; marker: string }[] = [];`
+- Инициализирует стек для хранения объектов с номером строки открывающего маркера и его полным маркером (например, `{ line: 5, marker: ":::note" }`)
+- Это позволяет впоследствии проверить, соответствует ли найденный блок искомому типу
 
-`const text = textLine.text;`  
-- Извлекает текст строки как строку.  
+`for (let line = 0; line < document.lineCount; line++) {`
+- Цикл по всем строкам документа
 
-`const trimmed = text.trim();`  
-- Удаляет пробельные символы в начале и конце – для надёжного сравнения маркеров.  
+`const textLine = document.lineAt(line);`
+- Получает объект `vscode.TextLine` для текущей строки
 
-`if (trimmed === endMarker) {`  
-- **Проверка закрывающего маркера.**  
-- Строгое сравнение всей строки (например, `":::"`).  
-- Такое условие гарантирует, что строка не содержит лишних символов и действительно является маркером конца.  
+`const text = textLine.text;`
+- Извлекает текст строки
 
-`const last = stack.pop();`  
-- Извлекает последний открытый блок из стека (LIFO).  
-- Если стек был пуст (лишний закрывающий маркер) – `last === undefined`, и блок просто игнорируется.  
+`const trimmed = text.trim();`
+- Удаляет пробельные символы в начале и конце для надёжного сравнения маркеров
 
-`if (last) {`  
-- Если блок был открыт ранее, проверяем его тип.  
+`if (trimmed === endMarker) {`
+- Проверка закрывающего маркера – строгое сравнение всей строки с `':::'`
+- Гарантирует, что строка не содержит лишних символов и действительно является маркером конца
 
-`if (startMarker === ":::" || last.marker === startMarker) {`  
-- Условие фильтрации:  
-  - Если мы ищем **все** блоки (`startMarker === ":::"`) – подходят любые.  
-  - Иначе требуется точное совпадение маркера открытия с искомым.  
+`const last = stack.pop();`
+- Извлекает последний открытый блок из стека (LIFO – последним зашёл, первым вышел)
+- Если стек был пуст (лишний закрывающий маркер) – `last === undefined`, и блок игнорируется
 
-`const range = new vscode.Range(`  
-    `new vscode.Position(last.line, 0),`  
-    `new vscode.Position(line, text.length)`  
-`);`  
-- Создаёт диапазон:  
-  - **Начало** – строка открытия, позиция `0` (первый символ).  
-  - **Конец** – строка закрытия, позиция `text.length` (после последнего символа, т.е. вся строка включена).  
+`if (last) {`
+- Если блок был открыт ранее, проверяем его тип
 
-`ranges.push(range);`  
-- Добавляет диапазон в массив результатов.  
+`if (startMarker === ":::" || last.marker === startMarker) {`
+- Условие фильтрации:
+  - Если ищем все блоки (`startMarker === ":::"`) – подходят любые
+  - Иначе требуется точное совпадение маркера открытия с искомым (`last.marker === startMarker`)
 
-`continue;`  
-- Переходит к следующей строке, пропуская проверку открывающего маркера (строка уже обработана как закрывающая).  
+`const range = new vscode.Range(`
+    `new vscode.Position(last.line, 0),`
+    `new vscode.Position(line, text.length)`
+`);`
+- Создаёт диапазон `Начало – Конец`:
+  - Начало – строка открытия, позиция 0 (первый символ)
+  - Конец – строка закрытия, позиция `text.length` (после последнего символа, вся строка включена)
 
-`if (trimmed.startsWith(":::")) {`  
-- **Проверка открывающего маркера.**  
-- Любая строка, которая начинается с `":::"` (например, `":::note Title"`, `":::"`, `":::info"`).  
+`ranges.push(range);`
+- Добавляет диапазон в массив результатов
 
-`const marker = trimmed.split(/\s+/)[0];`  
-- Извлекает первое слово строки – сам маркер.  
-- `split(/\s+/)` разбивает строку по пробелам; первый элемент – маркер.  
+`continue;`
+- Переходит к следующей строке, пропуская проверку открывающего маркера (строка уже обработана как закрывающая)
 
-`stack.push({ line, marker });`  
-- Сохраняет в стек номер строки и точный маркер.  
+`if (trimmed.startsWith(":::")) {`
+- Проверка открывающего маркера
+- Любая строка, которая начинается с `":::"` (например, `":::note Title"`, `":::"`, `":::info"`)
 
-`for (const item of stack) {`  
-- После обхода всех строк в стеке могут остаться незакрытые блоки.  
+`const marker = trimmed.split(/\s+/)[0];`
+- Извлекает первое слово строки – сам маркер
+- `split(/\s+/)` разбивает строку по пробелам; первый элемент – маркер (например, из `":::warning Заголовок"` получим `":::warning"`)
 
-`if (startMarker === ":::" || item.marker === startMarker) {`  
-- Применяем ту же фильтрацию по типу.  
+`stack.push({ line, marker });`
+- Сохраняет в стек номер строки и точный маркер
 
-`const range = new vscode.Range(`  
-    `new vscode.Position(item.line, 0),`  
-    `new vscode.Position(document.lineCount, 0)`  
-`);`  
-- Диапазон от строки открытия до **конца документа**.  
-- `document.lineCount` – номер последней строки + 1 (позиция после последней строки).  
+`for (const item of stack) {`
+- После обхода всех строк в стеке могут остаться незакрытые блоки
 
-`ranges.push(range);`  
-- Добавляет такой блок в результаты.  
+`if (startMarker === ":::" || item.marker === startMarker) {`
+- Применяем ту же фильтрацию по типу
 
-`return ranges;`  
-- Возвращает массив найденных диапазонов.  
+`const range = new vscode.Range(`
+    `new vscode.Position(item.line, 0),`
+    `new vscode.Position(document.lineCount, 0)`
+`);`
+- Диапазон от строки открытия до конца документа
+- `document.lineCount` – количество строк в документе (позиция после последней строки)
+
+`ranges.push(range);`
+- Добавляет такой блок в результаты
+
+`return ranges;`
+- Возвращает массив найденных диапазонов
 
 ```typescript
     /**
