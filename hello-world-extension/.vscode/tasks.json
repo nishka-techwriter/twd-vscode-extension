@@ -14,7 +14,17 @@
 			"group": {
 				"kind": "build",
 				"isDefault": true
-			}
+			},
+			"label": "npm: watch",
+			"detail": "Запустить компилятор TypeScript в режиме наблюдения"
+		},
+		{
+			"type": "npm",
+			"script": "compile",
+			"group": "build",
+			"problemMatcher": "$tsc",
+			"label": "npm: compile",
+			"detail": "Одноразовая компиляция TypeScript"
 		}
 	]
 }
