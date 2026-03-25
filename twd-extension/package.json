@@ -106,8 +106,7 @@
     ],
     "snippets": [
       {
-        "language": "markdown",
-        "path": "./snippets/API.json"
+        "path": "./snippets/API.code-snippets"
       },
       {
         "language": "markdown",
